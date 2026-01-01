@@ -1,0 +1,4 @@
+# file: /Users/tolga/Desktop/HerdX/LiteLLMPro/services/cfx-router/cfx/rate_limit.py
+# hypothesis_version: 6.148.9
+
+['X-RateLimit-Limit', 'X-RateLimit-Reset', 'allowed', 'current_count', 'remaining', 'request_count']

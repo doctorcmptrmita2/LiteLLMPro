@@ -1,0 +1,4 @@
+# file: /Users/tolga/Desktop/HerdX/LiteLLMPro/services/cfx-router/cfx/config.py
+# hypothesis_version: 6.148.9
+
+[0.3, 120, 1000, 4096, 8192, '.env', 'Connection timeout', 'INFO', 'Logging level', 'ModelsConfig', 'allowed_models', 'code', 'config', 'direct', 'fallback', 'max_tokens', 'max_tokens_cap', 'model', 'models.yaml', 'plan', 'r', 'review', 'stages', 'temperature', 'timeout', 'utf-8']

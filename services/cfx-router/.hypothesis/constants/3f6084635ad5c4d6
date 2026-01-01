@@ -1,0 +1,4 @@
+# file: /Users/tolga/Desktop/HerdX/LiteLLMPro/services/cfx-router/cfx/resilience.py
+# hypothesis_version: 6.148.9
+
+[30.0, 'T', 'closed', 'config', 'default', 'failure_count', 'failure_threshold', 'half_open', 'last_failure_time', 'name', 'open', 'recovery_timeout', 'state']

@@ -1,0 +1,82 @@
+# LiteLLM Proxy Configuration
+# This file configures the AI model routing for CF-X
+
+model_list:
+  # PLAN Stage - Premium model for architecture/planning
+  - model_name: claude-sonnet-4.5
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      max_tokens: 8192
+      input_cost_per_token: 0.000003
+      output_cost_per_token: 0.000015
+
+  # CODE Stage - Cost-effective model for code generation
+  - model_name: deepseek-v3
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+    model_info:
+      max_tokens: 8192
+      input_cost_per_token: 0.00000027
+      output_cost_per_token: 0.0000011
+
+  # REVIEW Stage - Fast, economical model for review
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      max_tokens: 16384
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000006
+
+  # Fallback models
+  - model_name: gemini-2.5-pro
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      max_tokens: 8192
+
+  - model_name: gemini-2.0-flash
+    litellm_params:
+      model: gemini/gemini-2.0-flash
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      max_tokens: 8192
+
+  - model_name: claude-haiku-3.5
+    litellm_params:
+      model: anthropic/claude-3-5-haiku-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      max_tokens: 8192
+
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      max_tokens: 16384
+
+litellm_settings:
+  # Enable streaming
+  stream: true
+  
+  # Timeout settings
+  request_timeout: 120
+  
+  # Retry settings
+  num_retries: 1
+  
+  # Logging
+  set_verbose: false
+
+general_settings:
+  # Master key for admin access
+  master_key: os.environ/LITELLM_MASTER_KEY
+  
+  # Database for usage tracking (optional)
+  # database_url: os.environ/DATABASE_URL

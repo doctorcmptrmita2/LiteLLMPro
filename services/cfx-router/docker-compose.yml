@@ -1,0 +1,74 @@
+# CF-X Router - Local Development Docker Compose
+# Usage: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # CF-X Router (FastAPI)
+  router:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://cfx:cfx_password@postgres:5432/cfx_db
+      - LITELLM_URL=http://litellm:4000
+      - HASH_SALT=dev-salt-change-in-production
+      - CFX_CONFIG_PATH=/app/config/models.yaml
+    volumes:
+      - ../../config:/app/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      litellm:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - cfx-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=cfx
+      - POSTGRES_PASSWORD=cfx_password
+      - POSTGRES_DB=cfx_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cfx -d cfx_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - cfx-network
+
+  # LiteLLM Proxy
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    ports:
+      - "4000:4000"
+    environment:
+      - LITELLM_MASTER_KEY=sk-litellm-master-key
+      # Add your API keys here
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    restart: unless-stopped
+    networks:
+      - cfx-network
+
+volumes:
+  postgres_data:
+
+networks:
+  cfx-network:
+    driver: bridge

@@ -1,0 +1,4 @@
+# file: C:\wamp64\www\LiteLLMPro\services\cfx-router\cfx\models.py
+# hypothesis_version: 6.148.9
+
+[-2.0, 0.0, 1.0, 2.0, 128000, 'ChatCompletionChunk', 'ErrorResponse', 'HealthStatus', 'Invalid API key', 'Rate limit exceeded', 'allow', 'assistant', 'authentication_error', 'before', 'chat.completion', 'choices', 'content', 'content_filter', 'created', 'degraded', 'delta', 'extra', 'finish_reason', 'frequency_penalty', 'function', 'function_call', 'healthy', 'id', 'index', 'invalid_api_key', 'json_object', 'length', 'logit_bias', 'logprobs', 'max_tokens', 'message', 'messages', 'model', 'n', 'presence_penalty', 'rate_limit_error', 'rate_limit_exceeded', 'response_format', 'role', 'seed', 'server_error', 'service_unavailable', 'stop', 'stream', 'system', 'system_fingerprint', 'temperature', 'text', 'tool', 'tool_calls', 'tool_choice', 'tools', 'top_p', 'unhealthy', 'usage', 'user']

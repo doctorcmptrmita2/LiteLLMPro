@@ -1,0 +1,4 @@
+# file: C:\wamp64\www\LiteLLMPro\services\cfx-router\cfx\rate_limit.py
+# hypothesis_version: 6.148.9
+
+[1000, 'request_count']

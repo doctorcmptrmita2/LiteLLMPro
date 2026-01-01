@@ -1,0 +1,4 @@
+# file: C:\wamp64\www\LiteLLMPro\services\cfx-router\cfx\config.py
+# hypothesis_version: 6.148.9
+
+[0.1, 0.2, 0.3, 30.0, 120.0, 1000, 2048, 4096, 5432, 8192, '0.1.0', '1', '120.0', '20', '5', '5432', 'API_KEY_SALT', 'CFX_VERSION', 'Config', 'DATABASE_URL', 'DB_HOST', 'DB_MAX_CONNECTIONS', 'DB_MIN_CONNECTIONS', 'DB_NAME', 'DB_PASSWORD', 'DB_PORT', 'DB_USER', 'DEBUG', 'DatabaseConfig', 'LITELLM_BASE_URL', 'LITELLM_RETRY_COUNT', 'LITELLM_TIMEOUT', 'LiteLLMConfig', 'allowed_models', 'cfx', 'circuit_breaker', 'claude-sonnet-4.5', 'code', 'concurrent_streams', 'config/models.yaml', 'daily_requests', 'deepseek-v3', 'direct', 'failure_threshold', 'fallback', 'false', 'gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-flash-lite', 'gpt-4o', 'gpt-4o-mini', 'localhost', 'max_tokens', 'max_tokens_cap', 'model', 'plan', 'rate_limit', 'recovery_timeout', 'review', 'stages', 'temperature', 'true']

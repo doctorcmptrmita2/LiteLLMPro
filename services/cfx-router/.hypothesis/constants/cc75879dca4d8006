@@ -1,0 +1,4 @@
+# file: /Users/tolga/Desktop/HerdX/LiteLLMPro/services/cfx-router/cfx/logger.py
+# hypothesis_version: 6.148.9
+
+[0.14, 0.25, 0.28, 0.5, 1.0, 1.25, 1.5, 2.0, 3.0, 10.0, 15.0, 30.0, 60.0, 75.0, -50000, 100, 10000, 100000, '1000000', 'Async logger started', 'Async logger stopped', 'api_key_id', 'claude-3-haiku', 'claude-3-opus', 'claude-3-sonnet', 'completion', 'completion_tokens', 'cost', 'created_at', 'deepseek-chat', 'deepseek-coder', 'error_message', 'generated_ids_count', 'gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'latency_ms', 'model', 'prompt', 'prompt_tokens', 'queue_max_size', 'queue_size', 'request_id', 'running', 'stage', 'status_code', 'total_tokens', 'user_id']
