@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 class LiteLLMConfig:
     """Configuration for LiteLLM client."""
     base_url: str
+    api_key: Optional[str] = None
     connect_timeout: float = 10.0
     read_timeout: float = 120.0
     max_retries: int = 1
@@ -98,8 +99,13 @@ class LiteLLMClient:
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
         if self._client is None or self._client.is_closed:
+            headers = {}
+            if self.config.api_key:
+                headers["Authorization"] = f"Bearer {self.config.api_key}"
+            
             self._client = httpx.AsyncClient(
                 base_url=self.config.base_url,
+                headers=headers,
                 timeout=httpx.Timeout(
                     connect=self.config.connect_timeout,
                     read=self.config.read_timeout,

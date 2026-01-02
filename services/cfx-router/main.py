@@ -142,8 +142,10 @@ async def lifespan(app: FastAPI):
     
     # Initialize LiteLLM client
     litellm_url = os.getenv("LITELLM_URL", "http://litellm:4000")
+    litellm_api_key = os.getenv("LITELLM_API_KEY", "")
     litellm_config = LiteLLMConfig(
         base_url=litellm_url,
+        api_key=litellm_api_key,
         connect_timeout=10.0,
         read_timeout=120.0,
     )
