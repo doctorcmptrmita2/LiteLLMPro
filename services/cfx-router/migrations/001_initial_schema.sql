@@ -66,19 +66,19 @@ CREATE TABLE IF NOT EXISTS request_logs (
     requested_model TEXT,             -- Model requested by client (if different)
     
     -- Token usage
-    input_tokens INT,
-    output_tokens INT,
+    prompt_tokens INT,
+    completion_tokens INT,
     total_tokens INT,
     
     -- Cost tracking
-    cost_usd NUMERIC(10, 6),          -- Calculated cost in USD
+    cost NUMERIC(10, 6),              -- Calculated cost in USD
     
     -- Performance
     latency_ms INT,                   -- Total request latency
     time_to_first_token_ms INT,       -- For streaming requests
     
     -- Status
-    status TEXT NOT NULL,             -- success | error | rate_limited | circuit_open
+    status_code INT,                  -- HTTP status code
     error_message TEXT,
     error_code TEXT,
     
@@ -91,15 +91,13 @@ CREATE TABLE IF NOT EXISTS request_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMPTZ,
     
-    CONSTRAINT request_logs_stage_check CHECK (stage IN ('plan', 'code', 'review', 'direct')),
-    CONSTRAINT request_logs_status_check CHECK (status IN ('success', 'error', 'rate_limited', 'circuit_open', 'timeout'))
+    CONSTRAINT request_logs_stage_check CHECK (stage IN ('plan', 'code', 'review', 'direct'))
 );
 
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_request_logs_user_created ON request_logs(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_request_logs_request_id ON request_logs(request_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_stage ON request_logs(stage);
-CREATE INDEX IF NOT EXISTS idx_request_logs_status ON request_logs(status);
 CREATE INDEX IF NOT EXISTS idx_request_logs_created_at ON request_logs(created_at DESC);
 
 
@@ -182,14 +180,18 @@ $$ LANGUAGE plpgsql;
 -- ============================================
 -- Sample Data for Development
 -- ============================================
--- Uncomment to insert test data
+-- Test user and API key for development
 
--- INSERT INTO users (id, email, name, plan) VALUES
---     ('00000000-0000-0000-0000-000000000001', 'test@example.com', 'Test User', 'pro');
+INSERT INTO users (id, email, name, plan) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'test@example.com', 'Test User', 'pro')
+ON CONFLICT (id) DO NOTHING;
 
--- INSERT INTO api_keys (user_id, key_hash, key_prefix, label, status) VALUES
---     ('00000000-0000-0000-0000-000000000001', 
---      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',  -- hash of empty string
---      'cfx_test',
---      'Development Key',
---      'active');
+-- API Key: cfx_testkey1234567890abcdef
+-- Hash generated with salt: cfx-dev-salt-not-for-production
+INSERT INTO api_keys (user_id, key_hash, key_prefix, label, status) VALUES
+    ('00000000-0000-0000-0000-000000000001', 
+     'a900af3569657d82686c2678c64fa13ad27c08ff6372f9299bb762ebc54ca692',
+     'cfx_test',
+     'Development Key',
+     'active')
+ON CONFLICT DO NOTHING;

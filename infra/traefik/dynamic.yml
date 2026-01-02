@@ -1,0 +1,92 @@
+# CF-X Traefik Dynamic Configuration
+# Routing rules and middleware
+
+http:
+  # Routers
+  routers:
+    # API Router - /v1/* endpoints
+    cfx-api:
+      rule: "PathPrefix(`/v1`)"
+      service: cfx-router
+      entryPoints:
+        - websecure
+      middlewares:
+        - api-headers
+        - rate-limit
+      tls:
+        certResolver: letsencrypt
+
+    # Health check endpoint
+    cfx-health:
+      rule: "Path(`/health`)"
+      service: cfx-router
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Dashboard (if enabled)
+    cfx-dashboard:
+      rule: "PathPrefix(`/dashboard`) || Path(`/`)"
+      service: cfx-dashboard
+      entryPoints:
+        - websecure
+      middlewares:
+        - dashboard-strip
+      tls:
+        certResolver: letsencrypt
+
+  # Services
+  services:
+    cfx-router:
+      loadBalancer:
+        servers:
+          - url: "http://cfx-router:8000"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    cfx-dashboard:
+      loadBalancer:
+        servers:
+          - url: "http://cfx-dashboard:3000"
+
+  # Middlewares
+  middlewares:
+    # Add CF-X headers
+    api-headers:
+      headers:
+        customResponseHeaders:
+          X-Powered-By: "CF-X Router"
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        accessControlAllowHeaders:
+          - Authorization
+          - Content-Type
+          - X-CFX-Stage
+          - X-CFX-Session
+        accessControlAllowOriginList:
+          - "*"
+        accessControlMaxAge: 86400
+
+    # Basic rate limiting at proxy level
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 200
+        period: 1s
+
+    # Strip /dashboard prefix
+    dashboard-strip:
+      stripPrefix:
+        prefixes:
+          - /dashboard
+
+    # Compress responses
+    compress:
+      compress:
+        excludedContentTypes:
+          - text/event-stream

@@ -1,0 +1,73 @@
+# CF-X Platform - Development Docker Compose
+# Simplified setup for local development (no Traefik, no SSL)
+
+services:
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: cfx-postgres-dev
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: cfx
+      POSTGRES_PASSWORD: cfx_dev_password
+      POSTGRES_DB: cfx_db
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./services/cfx-router/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cfx -d cfx_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # LiteLLM Proxy
+  # ===========================================
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: cfx-litellm-dev
+    ports:
+      - "4000:4000"
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-litellm-dev-key}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    volumes:
+      - ./services/cfx-router/litellm_config.yaml:/app/config.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ===========================================
+  # CF-X Router (FastAPI)
+  # ===========================================
+  cfx-router:
+    build:
+      context: ./services/cfx-router
+      dockerfile: Dockerfile
+    container_name: cfx-router-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://cfx:cfx_dev_password@postgres:5432/cfx_db
+      - LITELLM_URL=http://litellm:4000
+      - LITELLM_API_KEY=${LITELLM_MASTER_KEY:-sk-litellm-dev-key}
+      - HASH_SALT=cfx-dev-salt-not-for-production
+      - CFX_CONFIG_PATH=/app/config/models.yaml
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./config/models.yaml:/app/config/models.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+
+volumes:
+  postgres-dev-data:

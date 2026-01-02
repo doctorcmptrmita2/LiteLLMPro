@@ -29,7 +29,7 @@ class RequestLogEntry:
     """Log entry for a request."""
     request_id: str
     user_id: str
-    api_key_id: int
+    api_key_id: Optional[str]  # UUID as string
     stage: str
     model: str
     prompt_tokens: int

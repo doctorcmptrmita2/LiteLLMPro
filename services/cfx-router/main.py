@@ -585,6 +585,279 @@ async def log_request(
 
 
 # =============================================================================
+# Dashboard API Endpoints
+# =============================================================================
+
+@app.get("/api/stats")
+async def get_stats(auth: AuthResult = Depends(get_auth_result)):
+    """Get dashboard statistics."""
+    if not app_state.database:
+        return {
+            "totalRequests": 0,
+            "todayRequests": 0,
+            "totalCost": 0,
+            "avgLatency": 0,
+            "dailyLimit": 1000,
+        }
+    
+    try:
+        async with app_state.database.pool.acquire() as conn:
+            # Total requests
+            total = await conn.fetchval(
+                "SELECT COUNT(*) FROM request_logs WHERE user_id = $1",
+                auth.user_id
+            )
+            
+            # Today's requests
+            today = await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM request_logs 
+                WHERE user_id = $1 AND created_at >= CURRENT_DATE
+                """,
+                auth.user_id
+            )
+            
+            # Total cost
+            cost = await conn.fetchval(
+                "SELECT COALESCE(SUM(cost), 0) FROM request_logs WHERE user_id = $1",
+                auth.user_id
+            )
+            
+            # Average latency
+            avg_latency = await conn.fetchval(
+                """
+                SELECT COALESCE(AVG(latency_ms), 0) FROM request_logs 
+                WHERE user_id = $1 AND status_code = 200
+                """,
+                auth.user_id
+            )
+            
+            return {
+                "totalRequests": total or 0,
+                "todayRequests": today or 0,
+                "totalCost": float(cost or 0),
+                "avgLatency": int(avg_latency or 0),
+                "dailyLimit": app_state.rate_limiter.config.daily_limit if app_state.rate_limiter else 1000,
+            }
+    except Exception as e:
+        logger.error(f"Error fetching stats: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch stats")
+
+
+@app.get("/api/logs")
+async def get_logs(
+    auth: AuthResult = Depends(get_auth_result),
+    limit: int = 50,
+    offset: int = 0,
+    stage: Optional[str] = None,
+):
+    """Get request logs."""
+    if not app_state.database:
+        return {"logs": [], "total": 0}
+    
+    try:
+        async with app_state.database.pool.acquire() as conn:
+            # Build query
+            where_clause = "WHERE user_id = $1"
+            params = [auth.user_id]
+            
+            if stage:
+                where_clause += f" AND stage = ${len(params) + 1}"
+                params.append(stage)
+            
+            # Get total count
+            total = await conn.fetchval(
+                f"SELECT COUNT(*) FROM request_logs {where_clause}",
+                *params
+            )
+            
+            # Get logs
+            rows = await conn.fetch(
+                f"""
+                SELECT 
+                    request_id, stage, model, prompt_tokens, completion_tokens,
+                    total_tokens, cost, latency_ms, status_code, error_message,
+                    created_at
+                FROM request_logs 
+                {where_clause}
+                ORDER BY created_at DESC
+                LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
+                """,
+                *params, limit, offset
+            )
+            
+            logs = [
+                {
+                    "id": row["request_id"],
+                    "stage": row["stage"],
+                    "model": row["model"],
+                    "promptTokens": row["prompt_tokens"],
+                    "completionTokens": row["completion_tokens"],
+                    "totalTokens": row["total_tokens"],
+                    "cost": float(row["cost"]) if row["cost"] else 0,
+                    "latency": row["latency_ms"],
+                    "status": row["status_code"],
+                    "error": row["error_message"],
+                    "createdAt": row["created_at"].isoformat() if row["created_at"] else None,
+                }
+                for row in rows
+            ]
+            
+            return {"logs": logs, "total": total or 0}
+    except Exception as e:
+        logger.error(f"Error fetching logs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch logs")
+
+
+@app.get("/api/usage")
+async def get_usage(
+    auth: AuthResult = Depends(get_auth_result),
+    days: int = 7,
+):
+    """Get usage data for charts."""
+    if not app_state.database:
+        return {"usage": []}
+    
+    try:
+        async with app_state.database.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT 
+                    DATE(created_at) as date,
+                    COUNT(*) as requests,
+                    COALESCE(SUM(cost), 0) as cost,
+                    COALESCE(SUM(total_tokens), 0) as tokens
+                FROM request_logs 
+                WHERE user_id = $1 AND created_at >= CURRENT_DATE - INTERVAL '1 day' * $2
+                GROUP BY DATE(created_at)
+                ORDER BY date
+                """,
+                auth.user_id, days
+            )
+            
+            usage = [
+                {
+                    "date": row["date"].isoformat(),
+                    "requests": row["requests"],
+                    "cost": float(row["cost"]),
+                    "tokens": row["tokens"],
+                }
+                for row in rows
+            ]
+            
+            return {"usage": usage}
+    except Exception as e:
+        logger.error(f"Error fetching usage: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch usage")
+
+
+@app.get("/api/keys")
+async def get_keys(auth: AuthResult = Depends(get_auth_result)):
+    """Get user's API keys."""
+    if not app_state.database:
+        return {"keys": []}
+    
+    try:
+        async with app_state.database.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, key_prefix, label, status, created_at, last_used_at
+                FROM api_keys 
+                WHERE user_id = $1
+                ORDER BY created_at DESC
+                """,
+                auth.user_id
+            )
+            
+            keys = [
+                {
+                    "id": str(row["id"]),
+                    "prefix": row["key_prefix"],
+                    "label": row["label"],
+                    "status": row["status"],
+                    "createdAt": row["created_at"].isoformat() if row["created_at"] else None,
+                    "lastUsedAt": row["last_used_at"].isoformat() if row["last_used_at"] else None,
+                }
+                for row in rows
+            ]
+            
+            return {"keys": keys}
+    except Exception as e:
+        logger.error(f"Error fetching keys: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch keys")
+
+
+@app.post("/api/keys")
+async def create_key(
+    auth: AuthResult = Depends(get_auth_result),
+    label: Optional[str] = None,
+):
+    """Create a new API key."""
+    if not app_state.database:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    from cfx.security import generate_api_key, hash_api_key
+    
+    try:
+        # Generate new key
+        full_key, key_prefix = generate_api_key()
+        key_hash = hash_api_key(full_key, app_state.auth.hash_salt)
+        
+        async with app_state.database.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO api_keys (user_id, key_hash, key_prefix, label, status)
+                VALUES ($1, $2, $3, $4, 'active')
+                RETURNING id, created_at
+                """,
+                auth.user_id, key_hash, key_prefix, label or "API Key"
+            )
+            
+            return {
+                "id": str(row["id"]),
+                "key": full_key,  # Only returned once!
+                "prefix": key_prefix,
+                "label": label or "API Key",
+                "createdAt": row["created_at"].isoformat(),
+                "message": "Save this key securely. It won't be shown again.",
+            }
+    except Exception as e:
+        logger.error(f"Error creating key: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create key")
+
+
+@app.delete("/api/keys/{key_id}")
+async def revoke_key(
+    key_id: str,
+    auth: AuthResult = Depends(get_auth_result),
+):
+    """Revoke an API key."""
+    if not app_state.database:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    try:
+        async with app_state.database.pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE api_keys 
+                SET status = 'revoked', revoked_at = NOW()
+                WHERE id = $1 AND user_id = $2
+                """,
+                key_id, auth.user_id
+            )
+            
+            if result == "UPDATE 0":
+                raise HTTPException(status_code=404, detail="Key not found")
+            
+            return {"message": "Key revoked successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error revoking key: {e}")
+        raise HTTPException(status_code=500, detail="Failed to revoke key")
+
+
+# =============================================================================
 # Error Handlers
 # =============================================================================
 

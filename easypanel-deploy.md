@@ -4,10 +4,11 @@ Bu rehber CF-X Router'ı EasyPanel'e adım adım deploy etmenizi sağlar.
 
 ## Genel Bakış
 
-Üç servis deploy edeceğiz:
+Dört servis deploy edeceğiz:
 1. **cfx-postgres** - PostgreSQL veritabanı
 2. **cfx-litellm** - LiteLLM Proxy (AI model gateway)
 3. **cfx-router** - CF-X Router (FastAPI uygulaması)
+4. **cfx-dashboard** - CF-X Dashboard (Next.js uygulaması)
 
 ---
 
@@ -319,6 +320,81 @@ curl -X POST https://cfx-api.senin-domain.com/v1/chat/completions \
 1. Health check'i kontrol et
 2. Circuit breaker açık olabilir, 30 saniye bekle
 3. LiteLLM loglarını kontrol et
+
+---
+
+## Adım 8: CF-X Dashboard Servisi (cfx-dashboard)
+
+### 8.1 Servis Oluşturma
+1. **"+ New"** → **"App"** → **"GitHub"**
+2. Servis adı: `cfx-dashboard`
+
+### 8.2 GitHub Bağlantısı
+- **Repository**: `doctorcmptrmita2/LiteLLMPro`
+- **Branch**: `main`
+- **Root Directory**: `apps/dashboard`
+
+### 8.3 Build Ayarları
+- **Build Type**: Dockerfile
+- **Dockerfile Path**: `Dockerfile`
+
+### 8.4 Port Ayarı
+- **Port**: `3000`
+- **Protocol**: HTTP
+
+### 8.5 Environment Variables
+```
+DATABASE_URL=postgresql://cfx:SIFREN@cfx-postgres:5432/cfx_db
+AUTH_SECRET=cfx-auth-secret-32-karakter-degistir
+NEXTAUTH_URL=https://cfx-dashboard.senin-domain.com
+CFX_API_URL=http://cfx-router:8000
+```
+
+### 8.6 Health Check
+- **Path**: `/`
+- **Port**: `3000`
+
+### 8.7 Deploy
+1. **"Deploy"** butonuna tıkla
+2. Build loglarını takip et
+3. Dashboard'un açılmasını bekle
+
+### 8.8 Domain Ayarı
+1. `cfx-dashboard` servisine git
+2. **"Domains"** sekmesi
+3. **"Add Domain"**
+4. Subdomain: `cfx` veya `dashboard`
+5. **"Enable HTTPS"** işaretle
+
+Sonuç: `https://cfx.senin-domain.com`
+
+### 8.9 Veritabanı Migration (Dashboard)
+1. `cfx-dashboard` servisine git
+2. **"Terminal"** sekmesi
+3. Shell aç
+4. Çalıştır:
+```bash
+npx prisma db push
+npx tsx prisma/seed.ts
+```
+
+### 8.10 Admin Kullanıcı
+Seed script ile oluşturulan admin kullanıcı:
+- **Email**: `admin@cfx.dev`
+- **Şifre**: `admin123456`
+
+⚠️ **İlk girişten sonra şifreyi değiştirin!**
+
+---
+
+## Servis Özeti (Güncellenmiş)
+
+| Servis | Port | Internal URL | External URL | Açıklama |
+|--------|------|--------------|--------------|----------|
+| cfx-postgres | 5432 | `cfx-postgres:5432` | - | PostgreSQL DB |
+| cfx-litellm | 4000 | `cfx-litellm:4000` | (opsiyonel) | LiteLLM Proxy |
+| cfx-router | 8000 | `cfx-router:8000` | `cfx-api.domain.com` | CF-X API |
+| cfx-dashboard | 3000 | `cfx-dashboard:3000` | `cfx.domain.com` | Dashboard |
 
 ---
 

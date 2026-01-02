@@ -1,0 +1,225 @@
+// CF-X Dashboard - Prisma Schema
+// Database schema for users, subscriptions, and admin
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User & Auth
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?   // For credentials auth
+  image         String?
+  role          Role      @default(USER)
+  plan          Plan      @default(FREE)
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  apiKeys       ApiKey[]
+  subscription  Subscription?
+  usageLogs     UsageLog[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================
+// API Keys
+// ============================================
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  keyHash   String   @unique
+  keyPrefix String
+  status    KeyStatus @default(ACTIVE)
+  
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// Subscriptions & Billing
+// ============================================
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?  @unique
+  stripePriceId        String?
+  stripeCurrentPeriodEnd DateTime?
+  
+  status    SubscriptionStatus @default(ACTIVE)
+  plan      Plan               @default(FREE)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PricingPlan {
+  id          String @id @default(cuid())
+  name        String @unique
+  displayName String
+  description String?
+  
+  // Pricing
+  monthlyPrice  Int    // in cents
+  yearlyPrice   Int    // in cents
+  stripePriceId String?
+  
+  // Limits
+  dailyRequests    Int
+  concurrentStreams Int
+  maxTokensPerRequest Int
+  
+  // Features
+  features Json
+  
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// Usage Tracking
+// ============================================
+
+model UsageLog {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  date      DateTime @db.Date
+  requests  Int      @default(0)
+  tokens    Int      @default(0)
+  cost      Decimal  @db.Decimal(10, 6)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, date])
+}
+
+// ============================================
+// Admin & Settings
+// ============================================
+
+model SiteSettings {
+  id    String @id @default("default")
+  
+  // SEO
+  siteName        String @default("CF-X Platform")
+  siteDescription String @default("3-Stage AI Orchestration Platform")
+  siteKeywords    String @default("AI, LLM, API, Claude, GPT, DeepSeek")
+  
+  // Features
+  maintenanceMode Boolean @default(false)
+  registrationEnabled Boolean @default(true)
+  
+  // Cache
+  cacheEnabled Boolean @default(true)
+  cacheTTL     Int     @default(3600)
+  
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  resource  String
+  resourceId String?
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  
+  createdAt DateTime @default(now())
+}
+
+// ============================================
+// Enums
+// ============================================
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  TEAM
+  ENTERPRISE
+}
+
+enum KeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}

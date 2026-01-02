@@ -46,6 +46,7 @@ direct:
     - deepseek-v3
     - gemini-2.5-pro
     - gemini-2.0-flash
+    - gemini-flash-lite
   max_tokens_cap: 8192
 
 # Stage Inference Keywords

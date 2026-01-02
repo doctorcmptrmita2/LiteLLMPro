@@ -1,0 +1,4 @@
+# file: C:\wamp64\www\LiteLLMPro\services\cfx-router\cfx\litellm_client.py
+# hypothesis_version: 6.148.9
+
+[1.0, 5.0, 10.0, 30.0, 120.0, 100, 200, 502, 503, 504, '/health', '/v1/chat/completions', 'Authorization', 'CompletionResponse', 'Content-Type', 'POST', '[DONE]', 'application/json', 'choices', 'data:', 'data: [DONE]\n\n', 'id', 'max_tokens', 'messages', 'model', 'stop', 'stream', 'temperature', 'top_p', 'usage', 'utf-8']

@@ -1,0 +1,142 @@
+# CF-X Platform - Docker Compose
+# Full stack deployment: Traefik + Router + LiteLLM + PostgreSQL + Dashboard
+
+services:
+  # ===========================================
+  # Traefik Reverse Proxy
+  # ===========================================
+  traefik:
+    image: traefik:v3.0
+    container_name: cfx-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./infra/traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - traefik-certs:/letsencrypt
+    environment:
+      - ACME_EMAIL=${ACME_EMAIL:-admin@example.com}
+    networks:
+      - cfx-network
+    labels:
+      - "traefik.enable=true"
+
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: cfx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-cfx}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cfx_secret_password}
+      POSTGRES_DB: ${DB_NAME:-cfx_db}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./services/cfx-router/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - cfx-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cfx} -d ${DB_NAME:-cfx_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # LiteLLM Proxy
+  # ===========================================
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: cfx-litellm
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-litellm-master-key}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    volumes:
+      - ./services/cfx-router/litellm_config.yaml:/app/config.yaml:ro
+    networks:
+      - cfx-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      - postgres
+
+  # ===========================================
+  # CF-X Router (FastAPI)
+  # ===========================================
+  cfx-router:
+    build:
+      context: ./services/cfx-router
+      dockerfile: Dockerfile
+    container_name: cfx-router
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-cfx}:${DB_PASSWORD:-cfx_secret_password}@postgres:5432/${DB_NAME:-cfx_db}
+      - LITELLM_URL=http://litellm:4000
+      - LITELLM_API_KEY=${LITELLM_MASTER_KEY:-sk-litellm-master-key}
+      - HASH_SALT=${HASH_SALT:-cfx-super-secret-salt-change-me}
+      - CFX_CONFIG_PATH=/app/config/models.yaml
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./config/models.yaml:/app/config/models.yaml:ro
+    networks:
+      - cfx-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cfx-api.rule=PathPrefix(`/v1`) || Path(`/health`)"
+      - "traefik.http.routers.cfx-api.entrypoints=websecure"
+      - "traefik.http.routers.cfx-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.cfx-router.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+
+  # ===========================================
+  # CF-X Dashboard (Next.js) - Optional
+  # ===========================================
+  cfx-dashboard:
+    build:
+      context: ./apps/dashboard
+      dockerfile: Dockerfile
+    container_name: cfx-dashboard
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_URL=${API_URL:-http://localhost:8000}
+      - DATABASE_URL=postgresql://${DB_USER:-cfx}:${DB_PASSWORD:-cfx_secret_password}@postgres:5432/${DB_NAME:-cfx_db}
+    networks:
+      - cfx-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cfx-dashboard.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.cfx-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.cfx-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.cfx-dashboard.priority=1"
+      - "traefik.http.services.cfx-dashboard.loadbalancer.server.port=3000"
+    depends_on:
+      - cfx-router
+    profiles:
+      - dashboard  # Only start with --profile dashboard
+
+networks:
+  cfx-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  traefik-certs:
