@@ -99,13 +99,8 @@ class LiteLLMClient:
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
         if self._client is None or self._client.is_closed:
-            headers = {}
-            if self.config.api_key:
-                headers["Authorization"] = f"Bearer {self.config.api_key}"
-            
             self._client = httpx.AsyncClient(
                 base_url=self.config.base_url,
-                headers=headers,
                 timeout=httpx.Timeout(
                     connect=self.config.connect_timeout,
                     read=self.config.read_timeout,
@@ -118,6 +113,13 @@ class LiteLLMClient:
                 ),
             )
         return self._client
+    
+    def _get_headers(self) -> dict[str, str]:
+        """Get request headers with API key."""
+        headers = {"Content-Type": "application/json"}
+        if self.config.api_key:
+            headers["Authorization"] = f"Bearer {self.config.api_key}"
+        return headers
     
     async def close(self) -> None:
         """Close the HTTP client."""
@@ -149,6 +151,7 @@ class LiteLLMClient:
                 response = await client.post(
                     "/v1/chat/completions",
                     json=request.to_dict(),
+                    headers=self._get_headers(),
                 )
                 
                 if response.status_code == 200:
@@ -214,6 +217,7 @@ class LiteLLMClient:
                 "POST",
                 "/v1/chat/completions",
                 json=request.to_dict(),
+                headers=self._get_headers(),
             ) as response:
                 if response.status_code != 200:
                     body = await response.aread()
@@ -243,7 +247,11 @@ class LiteLLMClient:
         """
         try:
             client = await self._get_client()
-            response = await client.get("/health", timeout=5.0)
+            response = await client.get(
+                "/health", 
+                timeout=5.0,
+                headers=self._get_headers(),
+            )
             return response.status_code == 200
         except Exception as e:
             logger.error(f"LiteLLM health check failed: {e}")
